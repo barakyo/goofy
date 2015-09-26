@@ -33,6 +33,20 @@ defmodule Goofy.Server do
     send_message(message_to_send, message.channel, slack)
   end
 
+  defp handle_command(["search", key], message, slack, state) do
+    conn_str = "redis://" <> state.redis_host <> ":" <> state.redis_port
+    client = Exredis.start_using_connection_string(conn_str)
+    keys = client |> Exredis.query ["keys", key <> "*"]
+    query = %{
+      id: slack.me.id,
+      token: state.token,
+      channel: message.user,
+      username: state.username
+    }
+    Enum.each(keys, fn key -> send_hook_message(state.hook_url, Dict.put(query, "text", key)) end)
+    client |> Exredis.stop
+  end
+
   defp handle_command([ val | [] ], message, slack, state) do
     token = state.token
     conn_str = "redis://" <> state.redis_host <> ":" <> state.redis_port
@@ -50,10 +64,14 @@ defmodule Goofy.Server do
           ],
           username: state.username
         }
-        HTTPoison.post(state.hook_url, JSX.encode!(query))
+        send_hook_message(state.hook_url, query)
       )
     end
     client |> Exredis.stop
+  end
+
+  def send_hook_message(hook_url, query) do
+    HTTPoison.post(hook_url, JSX.encode!(query))
   end
 
   def terminate(reason, state) do
