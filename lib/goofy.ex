@@ -17,6 +17,7 @@ defmodule Goofy do
     children = [
       # Define workers and child supervisors to be supervised
       # worker(Goofy.Worker, [arg1, arg2, arg3])
+      worker(Cache, [Cache]),
       worker(Goofy.Server, [initial_state.token, initial_state])
     ]
 
